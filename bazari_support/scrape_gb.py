@@ -1,6 +1,7 @@
 import csv
 from datetime import datetime
 import urllib.request
+from selenium import webdriver
 from bs4 import BeautifulSoup
 import time
 import base64
@@ -18,22 +19,24 @@ data=[]
 
 while slide <= slides:
   # Get and parse HTML.
-  quote_page=url + "#" + str(slide) if slide > 0 else url 
-  page=urllib.request.urlopen(quote_page)
+  source=url + "#" + str(slide) if slide > 0 else url
+  driver=webdriver.Chrome() # Only real browser driver is used to pass in fragment, not normal HTTP request module.
+  driver.get(source)
+  page=driver.page_source
   soup=BeautifulSoup(page, 'html.parser')
 
   print("...\n...\n[IN PROGRESS] Scraping page " + str(slide) + "/" + str(slides) + " of '" + url + "'. Please wait...")
   slide += 1
 
   articles=soup.find_all('article', {'class': 'article article--secondary'})
-  length=len(articles)
   for article in articles:
-    print("Scraping article " + str(articles.index(article) + 1) + "/" + str(length) + "...")
+    print("Scraping article " + str(articles.index(article) + 1) + "/" + str(len(articles)) + "...")
 
     # Scrape name and price.
     article_body=article.find('div', {'class': 'article__body'})
-    name=article_body.h6.a.text.strip()
-    price=article_body.find('span', {'class': 'newPrice'}).text.strip().replace('$', '')
+    name=article_body.h6.a.text.strip().replace("/", "x") # In case the name includes "/" like "c/u" or "5/250ml".
+    price_box=article_body.find('span', {'class': 'newPrice'})
+    price=price_box.text.strip().replace('$', '') if price_box else 0 # In case of "Out of stock".
 
     # Scrape picture.
     article_image=article.find('div', {'class': 'article__image'})
@@ -50,8 +53,12 @@ print("[IN PROGRESS] Writing data to 'index.csv'. Please wait...")
 # Open a csv file with append instead of erasing.
 with open('index.csv', 'a') as csv_file:
   writer = csv.writer(csv_file)
-  for name, price, picture in data:
-    print("Writing to database article " + str(data.index(article) + 1) + "/" + str(length) + "...")
+  
+  for article in data:
+    print("Writing to database article " + str(data.index(article) + 1) + "/" + str(len(data)) + "...")
+
+    name, price, picture=article
+
     writer.writerow([name, price, picture, datetime.now()])
 
-print("[DONE] Finish scraping " + str(slides) + " pages of '" + url + "' (Total: " + str(length) + " items).")
+print("[DONE] Finish scraping " + str(slides) + " pages of '" + url + "' (Total: " + str(len(data)) + " items).")
