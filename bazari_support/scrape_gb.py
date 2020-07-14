@@ -16,6 +16,8 @@ else:
   slide=0
 
 data=[]
+check_names=[]
+redo = False
 
 while slide <= slides:
   # Get and parse HTML.
@@ -24,32 +26,45 @@ while slide <= slides:
   driver.get(source)
   page=driver.page_source
   soup=BeautifulSoup(page, 'html.parser')
+  articles=soup.find_all('article', {'class': 'article article--secondary'})
 
   print("...\n...\n[IN PROGRESS] Scraping page " + str(slide) + "/" + str(slides) + " of '" + url + "'. Please wait...")
   slide += 1
+  if redo:
+    time.sleep(4)
+    redo = False
+  else:
+    time.sleep(2)
 
-  articles=soup.find_all('article', {'class': 'article article--secondary'})
-  for article in articles:
-    print("Scraping article " + str(articles.index(article) + 1) + "/" + str(len(articles)) + "...")
+  # Check if the article is repeated. If yes, don't proceed and redo the page scrape.
+  check_name=articles[0].find('h6').a.text.strip().replace("/", "x")
+  if check_name in check_names:
+    slide -= 1
+    redo = True 
+    print("Finding duplicated article " + "'" + check_name + "'" + ". Redo page " + str(slide) + ".")
+  else:
+    for article in articles:
+      print("Scraping article " + str(articles.index(article) + 1) + "/" + str(len(articles)) + "...")
 
-    # Scrape name and price.
-    article_body=article.find('div', {'class': 'article__body'})
-    name=article_body.h6.a.text.strip().replace("/", "x") # In case the name includes "/" like "c/u" or "5/250ml".
-    price_box=article_body.find('span', {'class': 'newPrice'})
-    price=price_box.text.strip().replace('$', '') if price_box else 0 # In case of "Out of stock".
+      # Scrape name and price.
+      article_body=article.find('div', {'class': 'article__body'})
+      name=article_body.h6.a.text.strip().replace("/", "x") # In case the name includes "/" like "c/u" or "5/250ml".
+      price_box=article_body.find('span', {'class': 'newPrice'})
+      price=price_box.text.strip().replace('$', '') if price_box else 0 # In case of "Out of stock".
 
-    # Scrape picture.
-    article_image=article.find('div', {'class': 'article__image'})
-    picture=article_image.find('a', {'class': 'thumb-link'}).img['src']
-    urllib.request.urlretrieve(picture, name)
+      # Scrape picture.
+      article_image=article.find('div', {'class': 'article__image'})
+      picture=article_image.find('a', {'class': 'thumb-link'}).img['src']
+      urllib.request.urlretrieve(picture, name)
 
-    with open(name, 'rb') as img_file:
-      picture="data:image/png;base64,"+base64.b64encode(img_file.read()).decode('utf-8')
+      with open(name, 'rb') as img_file:
+        picture="data:image/png;base64,"+base64.b64encode(img_file.read()).decode('utf-8')
 
-    data.append((name, price, picture))
-    time.sleep(1)
+      data.append((name, price, picture))
+      check_names.append(check_name)
+      time.sleep(1)
 
-print("[IN PROGRESS] Writing data to 'index.csv'. Please wait...")
+print("\n\n[IN PROGRESS] Writing data to 'index.csv'. Please wait...")
 # Open a csv file with append instead of erasing.
 with open('index.csv', 'a') as csv_file:
   writer = csv.writer(csv_file)
