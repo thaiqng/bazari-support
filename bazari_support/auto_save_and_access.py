@@ -32,6 +32,7 @@ def uplink_scrape_data(url, slides, spanish_name, source_name):
     soup=BeautifulSoup(page, 'html.parser')
 
     print("...\n...\n[IN PROGRESS] Scraping page " + str(slide) + "/" + str(slides) + " of '" + url + "'. Please wait...")
+    slide += 1
 
     articles=soup.find_all('article', {'class': 'article article--secondary'})
     for article in articles:
@@ -52,12 +53,7 @@ def uplink_scrape_data(url, slides, spanish_name, source_name):
         picture="data:image/png;base64,"+base64.b64encode(img_file.read()).decode('utf-8')
 
       data.append((name, price, picture))
-
-    browser=webdriver.Firefox()
-    browser.get(url)
-    element=browser.find_element_by_class_name("next")
-    element.click()
-    slide += 1
+      time.sleep(1)
 
   print("[IN PROGRESS] Writing data to database. Please wait...")
   # Writing data to database.
